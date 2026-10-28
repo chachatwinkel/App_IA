@@ -1,0 +1,20 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Flask: Gestor de incidencias",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "flask",
+      "args": [
+        "--app",
+        "app:create_app",
+        "run",
+        "--debug"
+      ],
+      "cwd": "${workspaceFolder}",
+      "jinja": true,
+      "justMyCode": true
+    }
+  ]
+}
