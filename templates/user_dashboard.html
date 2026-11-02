@@ -24,6 +24,8 @@
           <th scope="col">Fecha</th>
           <th scope="col">Observación</th>
           <th scope="col">Categoría</th>
+          <th scope="col">Prioridad</th>
+          <th scope="col">Resumen</th>
           <th scope="col">Estado</th>
         </tr>
       </thead>
@@ -33,6 +35,8 @@
             <td>{{ incident["created_at"] }}</td>
             <td>{{ incident["observation"] }}</td>
             <td>{{ incident["category"] }}</td>
+            <td>{{ incident["priority"] or "—" }}</td>
+            <td>{{ incident["summary"] or "—" }}</td>
             <td>{{ incident["status"] }}</td>
           </tr>
         {% endfor %}

@@ -19,6 +19,7 @@ from flask import (
 )
 from werkzeug.security import check_password_hash
 
+from clasificador import clasificar
 from database import init_db
 
 F = TypeVar("F", bound=Callable)
@@ -141,12 +142,29 @@ def create_app(test_config: dict | None = None) -> Flask:
                     "error",
                 )
             else:
-                get_db().execute(
+                cursor = get_db().execute(
                     """
                     INSERT INTO incidents (user_id, observation)
                     VALUES (?, ?)
                     """,
                     (session["user_id"], observation),
+                )
+                incident_id = cursor.lastrowid
+                get_db().commit()
+                classification = clasificar(observation)
+                get_db().execute(
+                    """
+                    UPDATE incidents
+                    SET category = ?, priority = ?, summary = ?
+                    WHERE id = ? AND user_id = ?
+                    """,
+                    (
+                        classification.categoria,
+                        classification.prioridad,
+                        classification.resumen,
+                        incident_id,
+                        session["user_id"],
+                    ),
                 )
                 get_db().commit()
                 flash("Incidencia registrada.", "success")
@@ -154,7 +172,7 @@ def create_app(test_config: dict | None = None) -> Flask:
 
         incidents = get_db().execute(
             """
-            SELECT created_at, observation, category, status
+            SELECT created_at, observation, category, priority, summary, status
             FROM incidents
             WHERE user_id = ?
             ORDER BY created_at DESC, id DESC

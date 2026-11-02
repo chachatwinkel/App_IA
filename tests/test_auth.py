@@ -3,7 +3,9 @@ import sqlite3
 import pytest
 from werkzeug.security import check_password_hash, generate_password_hash
 
+import app as app_module
 from app import create_app
+from clasificador import CLASIFICACION_REVISAR, Clasificacion
 
 
 @pytest.fixture
@@ -98,7 +100,12 @@ def test_login_rejects_missing_csrf_token(client):
     assert response.status_code == 400
 
 
-def test_user_can_register_and_see_incident(client):
+def test_user_can_register_and_see_incident(client, monkeypatch):
+    monkeypatch.setattr(
+        app_module,
+        "clasificar",
+        lambda _observation: CLASIFICACION_REVISAR,
+    )
     login(client, "usuario", "user-test-password")
     with client.session_transaction() as session:
         token = session["_csrf_token"]
@@ -117,6 +124,37 @@ def test_user_can_register_and_see_incident(client):
     assert "No arranca el portátil" in page
     assert "revisar" in page
     assert "abierta" in page
+
+
+def test_registration_saves_ai_classification(client, app, monkeypatch):
+    monkeypatch.setattr(
+        app_module,
+        "clasificar",
+        lambda observation: (
+            Clasificacion("hardware", "alta", "El portátil no enciende")
+            if observation == "No arranca el portátil"
+            else CLASIFICACION_REVISAR
+        ),
+    )
+    login(client, "usuario", "user-test-password")
+    with client.session_transaction() as session:
+        token = session["_csrf_token"]
+
+    response = client.post(
+        "/usuario",
+        data={
+            "observation": "No arranca el portátil",
+            "csrf_token": token,
+        },
+        follow_redirects=True,
+    )
+    with sqlite3.connect(app.config["DATABASE"]) as connection:
+        incident = connection.execute(
+            "SELECT category, priority, summary FROM incidents"
+        ).fetchone()
+
+    assert response.status_code == 200
+    assert incident == ("hardware", "alta", "El portátil no enciende")
 
 
 def test_user_only_sees_their_own_incidents(client, app):
