@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+
+{% block title %}Panel técnico · Gestor de incidencias{% endblock %}
+
+{% block content %}
+  <h1>Panel del técnico</h1>
+  <p>Sesión: {{ session["username"] }} (Técnico)</p>
+
+  <h2>Filtrar incidencias</h2>
+  <form method="get" action="{{ url_for('technician_dashboard') }}">
+    <p>
+      <label for="filter-category">Categoría</label>
+      <select id="filter-category" name="category">
+        <option value="">Todas</option>
+        {% for category in categories %}
+          <option value="{{ category }}" {% if filters["category"] == category %}selected{% endif %}>
+            {{ category }}
+          </option>
+        {% endfor %}
+      </select>
+    </p>
+    <p>
+      <label for="filter-priority">Prioridad</label>
+      <select id="filter-priority" name="priority">
+        <option value="">Todas</option>
+        {% for priority in priorities %}
+          <option value="{{ priority }}" {% if filters["priority"] == priority %}selected{% endif %}>
+            {{ priority }}
+          </option>
+        {% endfor %}
+      </select>
+    </p>
+    <p>
+      <label for="filter-status">Estado</label>
+      <select id="filter-status" name="status">
+        <option value="">Todos</option>
+        {% for status in statuses %}
+          <option value="{{ status }}" {% if filters["status"] == status %}selected{% endif %}>
+            {{ status }}
+          </option>
+        {% endfor %}
+      </select>
+    </p>
+    <button type="submit">Aplicar filtros</button>
+    <a href="{{ url_for('technician_dashboard') }}">Limpiar</a>
+  </form>
+
+  <h2>Incidencias</h2>
+  {% if incidents %}
+    {% for incident in incidents %}
+      <section>
+        <h3>Incidencia #{{ incident["id"] }} · {{ incident["created_at"] }}</h3>
+        <p>Usuario: {{ incident["username"] }}</p>
+        <p>Observación: {{ incident["observation"] }}</p>
+        <p>Resumen: {{ incident["summary"] or "—" }}</p>
+        <form method="post" action="{{ url_for('update_incident', incident_id=incident['id'], **filters) }}">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <label for="category-{{ incident['id'] }}">Categoría</label>
+          <select id="category-{{ incident['id'] }}" name="category">
+            {% for category in categories %}
+              <option value="{{ category }}" {% if incident["category"] == category %}selected{% endif %}>
+                {{ category }}
+              </option>
+            {% endfor %}
+          </select>
+
+          <label for="priority-{{ incident['id'] }}">Prioridad</label>
+          <select id="priority-{{ incident['id'] }}" name="priority">
+            {% for priority in priorities %}
+              <option value="{{ priority }}" {% if incident["priority"] == priority %}selected{% endif %}>
+                {{ priority }}
+              </option>
+            {% endfor %}
+          </select>
+
+          <label for="status-{{ incident['id'] }}">Estado</label>
+          <select id="status-{{ incident['id'] }}" name="status">
+            {% for status in statuses %}
+              <option value="{{ status }}" {% if incident["status"] == status %}selected{% endif %}>
+                {{ status }}
+              </option>
+            {% endfor %}
+          </select>
+          <button type="submit">Guardar cambios</button>
+        </form>
+      </section>
+    {% endfor %}
+  {% else %}
+    <p>No hay incidencias que coincidan con los filtros.</p>
+  {% endif %}
+
+  <form action="{{ url_for('logout') }}" method="post">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <button type="submit">Cerrar sesión</button>
+  </form>
+{% endblock %}

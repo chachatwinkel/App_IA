@@ -24,6 +24,10 @@ from database import init_db
 
 F = TypeVar("F", bound=Callable)
 
+CATEGORIAS_TECNICO = ("hardware", "software", "red", "cuenta", "revisar")
+PRIORIDADES = ("baja", "media", "alta")
+ESTADOS = ("abierta", "en curso", "resuelta")
+
 
 def create_app(test_config: dict | None = None) -> Flask:
     app = Flask(__name__)
@@ -184,6 +188,78 @@ def create_app(test_config: dict | None = None) -> Flask:
     @app.get("/tecnico")
     @login_required("tecnico")
     def technician_dashboard() -> str:
-        return render_template("dashboard.html", role_label="Técnico")
+        filtros = {
+            "category": request.args.get("category", ""),
+            "priority": request.args.get("priority", ""),
+            "status": request.args.get("status", ""),
+        }
+        valores_filtro = {
+            "category": CATEGORIAS_TECNICO,
+            "priority": PRIORIDADES,
+            "status": ESTADOS,
+        }
+        for campo, valor in filtros.items():
+            if valor and valor not in valores_filtro[campo]:
+                abort(400)
+
+        condiciones = []
+        parametros: list[str] = []
+        for campo, valor in filtros.items():
+            if valor:
+                condiciones.append(f"{campo} = ?")
+                parametros.append(valor)
+
+        consulta = """
+            SELECT incidents.id, incidents.created_at, incidents.observation,
+                   incidents.category, incidents.priority, incidents.summary,
+                   incidents.status, users.username
+            FROM incidents
+            JOIN users ON users.id = incidents.user_id
+        """
+        if condiciones:
+            consulta += " WHERE " + " AND ".join(condiciones)
+        consulta += " ORDER BY incidents.created_at DESC, incidents.id DESC"
+        incidents = get_db().execute(consulta, parametros).fetchall()
+        return render_template(
+            "technician_dashboard.html",
+            incidents=incidents,
+            filters=filtros,
+            categories=CATEGORIAS_TECNICO,
+            priorities=PRIORIDADES,
+            statuses=ESTADOS,
+        )
+
+    @app.post("/tecnico/<int:incident_id>")
+    @login_required("tecnico")
+    def update_incident(incident_id: int) -> str:
+        validate_csrf()
+        category = request.form.get("category", "")
+        priority = request.form.get("priority", "")
+        status = request.form.get("status", "")
+        if (
+            category not in CATEGORIAS_TECNICO
+            or priority not in PRIORIDADES
+            or status not in ESTADOS
+        ):
+            abort(400)
+
+        cursor = get_db().execute(
+            """
+            UPDATE incidents
+            SET category = ?, priority = ?, status = ?
+            WHERE id = ?
+            """,
+            (category, priority, status, incident_id),
+        )
+        if cursor.rowcount == 0:
+            abort(404)
+        get_db().commit()
+        flash("Incidencia actualizada.", "success")
+        filtros = {
+            key: value
+            for key, value in request.args.items()
+            if key in {"category", "priority", "status"}
+        }
+        return redirect(url_for("technician_dashboard", **filtros))
 
     return app
