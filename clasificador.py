@@ -51,11 +51,31 @@ _JSON_SCHEMA = {
 }
 
 _SYSTEM_PROMPT = (
-    "Clasifica la incidencia informática descrita por el usuario. "
-    "Elige categoria hardware, software, red o cuenta; prioridad baja, media "
-    "o alta; y redacta un resumen de un máximo de 15 palabras. "
-    "Usa exclusivamente los valores permitidos por el esquema."
+    "Eres un clasificador de incidencias informáticas. Clasifica únicamente "
+    "la observación del usuario y devuelve los tres campos del esquema. "
+    "Usa categoria hardware para fallos físicos de equipos o periféricos, "
+    "software para programas y sistemas operativos, red para conectividad "
+    "o servicios de red, y cuenta para acceso, credenciales o permisos. "
+    "Usa prioridad baja, media o alta según el impacto y la urgencia. "
+    "El resumen debe describir el problema en un máximo de 15 palabras. "
+    "Ejemplo: 'No arranca el portátil, no enciende ni el led' es categoria "
+    "'hardware'. No inventes datos y respeta estrictamente el esquema JSON."
 )
+
+
+def _obtener_modelo(cliente: OpenAI) -> str:
+    modelo_configurado = os.environ.get("LMSTUDIO_MODEL", "").strip()
+    if modelo_configurado:
+        return modelo_configurado
+
+    modelos = cliente.models.list().data
+    modelo_chat = next(
+        (modelo.id for modelo in modelos if "embed" not in modelo.id.lower()),
+        None,
+    )
+    if modelo_chat is None:
+        raise ValueError("LM Studio no anuncia ningún modelo de chat.")
+    return modelo_chat
 
 
 def _parsear_clasificacion(contenido: str | None) -> Clasificacion:
@@ -87,12 +107,25 @@ def _parsear_clasificacion(contenido: str | None) -> Clasificacion:
 
 def clasificar(observacion: str) -> Clasificacion:
     cliente = OpenAI(
-        base_url=os.environ.get("LMSTUDIO_URL", "http://localhost:1234/v1"),
+        base_url=os.environ.get("LMSTUDIO_URL", "").strip()
+        or "http://localhost:1234/v1",
         api_key="lm-studio",
-        timeout=10.0,
+        timeout=60.0,
         max_retries=0,
     )
-    modelo = os.environ.get("LMSTUDIO_MODEL", "local-model")
+
+    try:
+        modelo = _obtener_modelo(cliente)
+    except OpenAIError as error:
+        logger.warning(
+            "No se pudo consultar LM Studio para obtener un modelo: %s", error
+        )
+        return CLASIFICACION_REVISAR
+    except ValueError as error:
+        logger.warning(
+            "No se pudo obtener un modelo válido de LM Studio: %s", error
+        )
+        return CLASIFICACION_REVISAR
 
     for intento in range(2):
         try:
@@ -104,11 +137,13 @@ def clasificar(observacion: str) -> Clasificacion:
                 ],
                 response_format=_JSON_SCHEMA,
                 temperature=0,
+                max_tokens=128,
             )
-        except OpenAIError:
+        except OpenAIError as error:
             logger.warning(
-                "No se pudo contactar con LM Studio; la incidencia requiere revisión.",
-                exc_info=True,
+                "LM Studio no pudo clasificar la incidencia con el modelo %s: %s",
+                modelo,
+                error,
             )
             return CLASIFICACION_REVISAR
 
