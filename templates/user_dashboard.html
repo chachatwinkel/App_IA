@@ -3,51 +3,88 @@
 {% block title %}Mis incidencias · Gestor de incidencias{% endblock %}
 
 {% block content %}
-  <h1>Mis incidencias</h1>
-  <p>Sesión: {{ session["username"] }} (Usuario)</p>
+  <header class="topbar">
+    <a class="brand" href="{{ url_for('user_dashboard') }}">
+      <span class="brand-mark brand-mark--small" aria-hidden="true">GI</span>
+      <span>Gestor de incidencias</span>
+    </a>
+    <div class="topbar__actions">
+      <span class="user-chip"><span class="status-dot"></span>{{ session["username"] }} <span class="user-chip__role">Usuario</span></span>
+      <form action="{{ url_for('logout') }}" method="post">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button type="submit" class="button button--quiet">Cerrar sesión</button>
+      </form>
+    </div>
+  </header>
 
-  <h2>Registrar incidencia</h2>
-  <form method="post">
-    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-    <p>
-      <label for="observation">Observación</label>
-      <textarea id="observation" name="observation" rows="4" required></textarea>
-    </p>
-    <button type="submit">Registrar incidencia</button>
-  </form>
+  <section class="page-heading">
+    <p class="eyebrow">Espacio personal</p>
+    <h1>Mis incidencias</h1>
+    <p class="muted-text">Registra un problema y consulta el seguimiento de tus solicitudes.</p>
+  </section>
 
-  <h2>Historial</h2>
-  {% if incidents %}
-    <table>
-      <thead>
-        <tr>
-          <th scope="col">Fecha</th>
-          <th scope="col">Observación</th>
-          <th scope="col">Categoría</th>
-          <th scope="col">Prioridad</th>
-          <th scope="col">Resumen</th>
-          <th scope="col">Estado</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for incident in incidents %}
-          <tr>
-            <td>{{ incident["created_at"] }}</td>
-            <td>{{ incident["observation"] }}</td>
-            <td>{{ incident["category"] }}</td>
-            <td>{{ incident["priority"] or "—" }}</td>
-            <td>{{ incident["summary"] or "—" }}</td>
-            <td>{{ incident["status"] }}</td>
-          </tr>
-        {% endfor %}
-      </tbody>
-    </table>
-  {% else %}
-    <p>Aún no has registrado incidencias.</p>
-  {% endif %}
+  <section class="panel-card report-card">
+    <div class="section-heading">
+      <div>
+        <p class="eyebrow">Nuevo reporte</p>
+        <h2>¿Qué ha ocurrido?</h2>
+      </div>
+      <span class="section-icon" aria-hidden="true">+</span>
+    </div>
+    <form method="post" class="form-stack">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <div class="form-field">
+        <label for="observation">Observación</label>
+        <textarea id="observation" name="observation" rows="4" placeholder="Describe brevemente el problema..." required></textarea>
+        <span class="field-hint">Incluye los detalles que puedan ayudar a resolverlo.</span>
+      </div>
+      <div class="form-actions">
+        <button type="submit" class="button button--primary">Registrar incidencia <span aria-hidden="true">→</span></button>
+      </div>
+    </form>
+  </section>
 
-  <form action="{{ url_for('logout') }}" method="post">
-    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-    <button type="submit">Cerrar sesión</button>
-  </form>
+  <section class="incidents-section">
+    <div class="section-heading">
+      <div>
+        <p class="eyebrow">Seguimiento</p>
+        <h2>Historial de incidencias</h2>
+      </div>
+      <span class="count-badge">{{ incidents|length }} en total</span>
+    </div>
+    {% if incidents %}
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th scope="col">Fecha</th>
+              <th scope="col">Observación</th>
+              <th scope="col">Categoría</th>
+              <th scope="col">Prioridad</th>
+              <th scope="col">Resumen</th>
+              <th scope="col">Estado</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for incident in incidents %}
+              <tr>
+                <td class="date-cell">{{ incident["created_at"] }}</td>
+                <td class="observation-cell">{{ incident["observation"] }}</td>
+                <td><span class="tag tag--category">{{ incident["category"] }}</span></td>
+                <td>{{ incident["priority"] or "—" }}</td>
+                <td>{{ incident["summary"] or "—" }}</td>
+                <td><span class="tag tag--status tag--status-{{ incident['status']|replace(' ', '-') }}">{{ incident["status"] }}</span></td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <div class="empty-state">
+        <span class="empty-state__icon" aria-hidden="true">✦</span>
+        <h3>Aún no tienes incidencias</h3>
+        <p>Cuando registres un problema, aparecerá aquí su estado y seguimiento.</p>
+      </div>
+    {% endif %}
+  </section>
 {% endblock %}

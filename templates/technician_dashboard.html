@@ -3,94 +3,140 @@
 {% block title %}Panel técnico · Gestor de incidencias{% endblock %}
 
 {% block content %}
-  <h1>Panel del técnico</h1>
-  <p>Sesión: {{ session["username"] }} (Técnico)</p>
+  <header class="topbar">
+    <a class="brand" href="{{ url_for('technician_dashboard') }}">
+      <span class="brand-mark brand-mark--small" aria-hidden="true">GI</span>
+      <span>Gestor de incidencias</span>
+    </a>
+    <div class="topbar__actions">
+      <span class="user-chip"><span class="status-dot"></span>{{ session["username"] }} <span class="user-chip__role">Técnico</span></span>
+      <form action="{{ url_for('logout') }}" method="post">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button type="submit" class="button button--quiet">Cerrar sesión</button>
+      </form>
+    </div>
+  </header>
 
-  <h2>Filtrar incidencias</h2>
-  <form method="get" action="{{ url_for('technician_dashboard') }}">
-    <p>
-      <label for="filter-category">Categoría</label>
-      <select id="filter-category" name="category">
-        <option value="">Todas</option>
-        {% for category in categories %}
-          <option value="{{ category }}" {% if filters["category"] == category %}selected{% endif %}>
-            {{ category }}
-          </option>
-        {% endfor %}
-      </select>
-    </p>
-    <p>
-      <label for="filter-priority">Prioridad</label>
-      <select id="filter-priority" name="priority">
-        <option value="">Todas</option>
-        {% for priority in priorities %}
-          <option value="{{ priority }}" {% if filters["priority"] == priority %}selected{% endif %}>
-            {{ priority }}
-          </option>
-        {% endfor %}
-      </select>
-    </p>
-    <p>
-      <label for="filter-status">Estado</label>
-      <select id="filter-status" name="status">
-        <option value="">Todos</option>
-        {% for status in statuses %}
-          <option value="{{ status }}" {% if filters["status"] == status %}selected{% endif %}>
-            {{ status }}
-          </option>
-        {% endfor %}
-      </select>
-    </p>
-    <button type="submit">Aplicar filtros</button>
-    <a href="{{ url_for('technician_dashboard') }}">Limpiar</a>
-  </form>
+  <section class="page-heading">
+    <p class="eyebrow">Administración de soporte</p>
+    <h1>Panel del técnico</h1>
+    <p class="muted-text">Revisa, clasifica y actualiza las incidencias de los usuarios.</p>
+  </section>
 
-  <h2>Incidencias</h2>
+  <section class="panel-card filter-card">
+    <div class="section-heading">
+      <div>
+        <p class="eyebrow">Búsqueda</p>
+        <h2>Filtrar incidencias</h2>
+      </div>
+      <span class="section-icon" aria-hidden="true">⌕</span>
+    </div>
+    <form method="get" action="{{ url_for('technician_dashboard') }}" class="filter-form">
+      <div class="form-field">
+        <label for="filter-category">Categoría</label>
+        <select id="filter-category" name="category">
+          <option value="">Todas</option>
+          {% for category in categories %}
+            <option value="{{ category }}" {% if filters["category"] == category %}selected{% endif %}>
+              {{ category }}
+            </option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="form-field">
+        <label for="filter-priority">Prioridad</label>
+        <select id="filter-priority" name="priority">
+          <option value="">Todas</option>
+          {% for priority in priorities %}
+            <option value="{{ priority }}" {% if filters["priority"] == priority %}selected{% endif %}>
+              {{ priority }}
+            </option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="form-field">
+        <label for="filter-status">Estado</label>
+        <select id="filter-status" name="status">
+          <option value="">Todos</option>
+          {% for status in statuses %}
+            <option value="{{ status }}" {% if filters["status"] == status %}selected{% endif %}>
+              {{ status }}
+            </option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="filter-actions">
+        <button type="submit" class="button button--primary">Aplicar filtros</button>
+        <a class="button button--secondary" href="{{ url_for('technician_dashboard') }}">Limpiar</a>
+      </div>
+    </form>
+  </section>
+
+  <section class="incidents-section">
+    <div class="section-heading">
+      <div>
+        <p class="eyebrow">Cola de trabajo</p>
+        <h2>Incidencias</h2>
+      </div>
+      <span class="count-badge">{{ incidents|length }} resultados</span>
+    </div>
   {% if incidents %}
     {% for incident in incidents %}
-      <section>
-        <h3>Incidencia #{{ incident["id"] }} · {{ incident["created_at"] }}</h3>
-        <p>Usuario: {{ incident["username"] }}</p>
-        <p>Observación: {{ incident["observation"] }}</p>
-        <p>Resumen: {{ incident["summary"] or "—" }}</p>
-        <form method="post" action="{{ url_for('update_incident', incident_id=incident['id'], **filters) }}">
+      <article class="incident-card">
+        <div class="incident-card__header">
+          <div>
+            <p class="incident-id">INC-{{ "%04d"|format(incident["id"]) }}</p>
+            <h3>{{ incident["observation"] }}</h3>
+          </div>
+          <span class="tag tag--status tag--status-{{ incident['status']|replace(' ', '-') }}">{{ incident["status"] }}</span>
+        </div>
+        <div class="incident-meta">
+          <span><span class="meta-label">Usuario</span>{{ incident["username"] }}</span>
+          <span><span class="meta-label">Fecha</span>{{ incident["created_at"] }}</span>
+          <span><span class="meta-label">Resumen</span>{{ incident["summary"] or "Pendiente de revisión" }}</span>
+        </div>
+        <form method="post" class="edit-form" action="{{ url_for('update_incident', incident_id=incident['id'], **filters) }}">
           <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-          <label for="category-{{ incident['id'] }}">Categoría</label>
-          <select id="category-{{ incident['id'] }}" name="category">
-            {% for category in categories %}
-              <option value="{{ category }}" {% if incident["category"] == category %}selected{% endif %}>
-                {{ category }}
-              </option>
-            {% endfor %}
-          </select>
-
-          <label for="priority-{{ incident['id'] }}">Prioridad</label>
-          <select id="priority-{{ incident['id'] }}" name="priority">
-            {% for priority in priorities %}
-              <option value="{{ priority }}" {% if incident["priority"] == priority %}selected{% endif %}>
-                {{ priority }}
-              </option>
-            {% endfor %}
-          </select>
-
-          <label for="status-{{ incident['id'] }}">Estado</label>
-          <select id="status-{{ incident['id'] }}" name="status">
-            {% for status in statuses %}
-              <option value="{{ status }}" {% if incident["status"] == status %}selected{% endif %}>
-                {{ status }}
-              </option>
-            {% endfor %}
-          </select>
-          <button type="submit">Guardar cambios</button>
+          <div class="form-field">
+            <label for="category-{{ incident['id'] }}">Categoría</label>
+            <select id="category-{{ incident['id'] }}" name="category">
+              {% for category in categories %}
+                <option value="{{ category }}" {% if incident["category"] == category %}selected{% endif %}>
+                  {{ category }}
+                </option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="form-field">
+            <label for="priority-{{ incident['id'] }}">Prioridad</label>
+            <select id="priority-{{ incident['id'] }}" name="priority">
+              {% for priority in priorities %}
+                <option value="{{ priority }}" {% if incident["priority"] == priority %}selected{% endif %}>
+                  {{ priority }}
+                </option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="form-field">
+            <label for="status-{{ incident['id'] }}">Estado</label>
+            <select id="status-{{ incident['id'] }}" name="status">
+              {% for status in statuses %}
+                <option value="{{ status }}" {% if incident["status"] == status %}selected{% endif %}>
+                  {{ status }}
+                </option>
+              {% endfor %}
+            </select>
+          </div>
+          <button type="submit" class="button button--secondary">Guardar cambios <span aria-hidden="true">→</span></button>
         </form>
       </section>
     {% endfor %}
   {% else %}
-    <p>No hay incidencias que coincidan con los filtros.</p>
+    <div class="empty-state">
+      <span class="empty-state__icon" aria-hidden="true">⌕</span>
+      <h3>No hay resultados</h3>
+      <p>No hay incidencias que coincidan con los filtros seleccionados.</p>
+    </div>
   {% endif %}
-
-  <form action="{{ url_for('logout') }}" method="post">
-    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-    <button type="submit">Cerrar sesión</button>
-  </form>
+  </section>
 {% endblock %}

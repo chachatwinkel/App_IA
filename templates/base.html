@@ -4,19 +4,22 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>{% block title %}Gestor de incidencias{% endblock %}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
   </head>
-  <body>
-    <main>
+  <body class="{% block body_class %}{% endblock %}">
+    {% block page %}
+    <main class="page-shell">
       {% with messages = get_flashed_messages(with_categories=true) %}
         {% if messages %}
-          <ul>
+          <ul class="flash-messages" aria-live="polite">
             {% for category, message in messages %}
-              <li class="{{ category }}">{{ message }}</li>
+              <li class="flash-message flash-message--{{ category }}">{{ message }}</li>
             {% endfor %}
           </ul>
         {% endif %}
       {% endwith %}
       {% block content %}{% endblock %}
     </main>
+    {% endblock %}
   </body>
 </html>
