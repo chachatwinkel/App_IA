@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+
+{% block title %}Mis incidencias · Gestor de incidencias{% endblock %}
+
+{% block content %}
+  <h1>Mis incidencias</h1>
+  <p>Sesión: {{ session["username"] }} (Usuario)</p>
+
+  <h2>Registrar incidencia</h2>
+  <form method="post">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <p>
+      <label for="observation">Observación</label>
+      <textarea id="observation" name="observation" rows="4" required></textarea>
+    </p>
+    <button type="submit">Registrar incidencia</button>
+  </form>
+
+  <h2>Historial</h2>
+  {% if incidents %}
+    <table>
+      <thead>
+        <tr>
+          <th scope="col">Fecha</th>
+          <th scope="col">Observación</th>
+          <th scope="col">Categoría</th>
+          <th scope="col">Estado</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for incident in incidents %}
+          <tr>
+            <td>{{ incident["created_at"] }}</td>
+            <td>{{ incident["observation"] }}</td>
+            <td>{{ incident["category"] }}</td>
+            <td>{{ incident["status"] }}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% else %}
+    <p>Aún no has registrado incidencias.</p>
+  {% endif %}
+
+  <form action="{{ url_for('logout') }}" method="post">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <button type="submit">Cerrar sesión</button>
+  </form>
+{% endblock %}

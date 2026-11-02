@@ -49,6 +49,7 @@ def create_app(test_config: dict | None = None) -> Flask:
         if "db" not in g:
             connection = sqlite3.connect(app.config["DATABASE"])
             connection.row_factory = sqlite3.Row
+            connection.execute("PRAGMA foreign_keys = ON")
             g.db = connection
         return g.db
 
@@ -128,10 +129,39 @@ def create_app(test_config: dict | None = None) -> Flask:
         session.clear()
         return redirect(url_for("login"))
 
-    @app.get("/usuario")
+    @app.route("/usuario", methods=["GET", "POST"])
     @login_required("usuario")
     def user_dashboard() -> str:
-        return render_template("dashboard.html", role_label="Usuario")
+        if request.method == "POST":
+            validate_csrf()
+            observation = request.form.get("observation", "").strip()
+            if not observation:
+                flash(
+                    "Escribe una observación antes de registrar la incidencia.",
+                    "error",
+                )
+            else:
+                get_db().execute(
+                    """
+                    INSERT INTO incidents (user_id, observation)
+                    VALUES (?, ?)
+                    """,
+                    (session["user_id"], observation),
+                )
+                get_db().commit()
+                flash("Incidencia registrada.", "success")
+                return redirect(url_for("user_dashboard"))
+
+        incidents = get_db().execute(
+            """
+            SELECT created_at, observation, category, status
+            FROM incidents
+            WHERE user_id = ?
+            ORDER BY created_at DESC, id DESC
+            """,
+            (session["user_id"],),
+        ).fetchall()
+        return render_template("user_dashboard.html", incidents=incidents)
 
     @app.get("/tecnico")
     @login_required("tecnico")

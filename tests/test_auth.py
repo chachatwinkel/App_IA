@@ -1,7 +1,7 @@
 import sqlite3
 
 import pytest
-from werkzeug.security import check_password_hash
+from werkzeug.security import check_password_hash, generate_password_hash
 
 from app import create_app
 
@@ -94,5 +94,74 @@ def test_login_rejects_missing_csrf_token(client):
         "/login",
         data={"username": "usuario", "password": "user-test-password"},
     )
+
+    assert response.status_code == 400
+
+
+def test_user_can_register_and_see_incident(client):
+    login(client, "usuario", "user-test-password")
+    with client.session_transaction() as session:
+        token = session["_csrf_token"]
+
+    response = client.post(
+        "/usuario",
+        data={
+            "observation": "No arranca el portátil",
+            "csrf_token": token,
+        },
+        follow_redirects=True,
+    )
+
+    page = response.get_data(as_text=True)
+    assert response.status_code == 200
+    assert "No arranca el portátil" in page
+    assert "revisar" in page
+    assert "abierta" in page
+
+
+def test_user_only_sees_their_own_incidents(client, app):
+    with sqlite3.connect(app.config["DATABASE"]) as connection:
+        connection.execute(
+            "INSERT INTO users (username, password_hash, role) VALUES (?, ?, ?)",
+            ("otro_usuario", generate_password_hash("other-password"), "usuario"),
+        )
+        other_user_id = connection.execute(
+            "SELECT id FROM users WHERE username = ?", ("otro_usuario",)
+        ).fetchone()[0]
+        connection.execute(
+            "INSERT INTO incidents (user_id, observation) VALUES (?, ?)",
+            (other_user_id, "Incidencia privada de otra persona"),
+        )
+
+    login(client, "usuario", "user-test-password")
+    response = client.get("/usuario")
+    page = response.get_data(as_text=True)
+
+    assert response.status_code == 200
+    assert "Incidencia privada de otra persona" not in page
+
+
+def test_blank_observation_is_not_saved(client, app):
+    login(client, "usuario", "user-test-password")
+    with client.session_transaction() as session:
+        token = session["_csrf_token"]
+
+    response = client.post(
+        "/usuario",
+        data={"observation": "   ", "csrf_token": token},
+        follow_redirects=True,
+    )
+    with sqlite3.connect(app.config["DATABASE"]) as connection:
+        count = connection.execute("SELECT COUNT(*) FROM incidents").fetchone()[0]
+
+    assert response.status_code == 200
+    assert "Escribe una observación" in response.get_data(as_text=True)
+    assert count == 0
+
+
+def test_incident_submission_requires_csrf_token(client):
+    login(client, "usuario", "user-test-password")
+
+    response = client.post("/usuario", data={"observation": "Problema de red"})
 
     assert response.status_code == 400

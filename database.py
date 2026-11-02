@@ -23,6 +23,23 @@ def init_db(
             )
             """
         )
+        connection.execute(
+            """
+            CREATE TABLE IF NOT EXISTS incidents (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                user_id INTEGER NOT NULL REFERENCES users (id),
+                observation TEXT NOT NULL CHECK (length(trim(observation)) > 0),
+                category TEXT NOT NULL DEFAULT 'revisar'
+                    CHECK (category IN ('hardware', 'software', 'red', 'cuenta', 'revisar')),
+                priority TEXT
+                    CHECK (priority IS NULL OR priority IN ('baja', 'media', 'alta')),
+                summary TEXT,
+                status TEXT NOT NULL DEFAULT 'abierta'
+                    CHECK (status IN ('abierta', 'en curso', 'resuelta'))
+            )
+            """
+        )
         connection.executemany(
             """
             INSERT OR IGNORE INTO users (username, password_hash, role)
